@@ -1,4 +1,5 @@
 #include <openiris.hpp>
+#include "mutex.h"
 /**
  * @brief ProjectConfig object
  * @brief This is the main configuration object for the project

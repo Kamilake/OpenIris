@@ -1,4 +1,5 @@
 #include "streamServer.hpp"
+#include "../../src/mutex.h"
 
 constexpr static const char *STREAM_CONTENT_TYPE = "multipart/x-mixed-replace;boundary=" PART_BOUNDARY;
 constexpr static const char *STREAM_BOUNDARY = "\r\n--" PART_BOUNDARY "\r\n";
@@ -30,6 +31,15 @@ esp_err_t StreamHelpers::stream(httpd_req_t *req)
 
     while (true)
     {
+        // 뮤텍스 잠금
+        if (xSemaphoreTake(xMutex, portMAX_DELAY) != pdTRUE) {
+            return ESP_FAIL; // 뮤텍스를 얻지 못한 경우 실패 반환
+        }
+
+        if (camera_id == CAMERA_LEFT)
+            digitalWrite(43, 1);
+        else if (camera_id == CAMERA_RIGHT)
+            digitalWrite(43, 0);
         fb = esp_camera_fb_get();
         if (!fb)
         {
@@ -63,8 +73,14 @@ esp_err_t StreamHelpers::stream(httpd_req_t *req)
             free(_jpg_buf);
             _jpg_buf = NULL;
         }
+
         if (res != ESP_OK)
+        {
+            log_d("Stream ended, res: %02X", res);
+            xSemaphoreGive(xMutex); // 뮤텍스 해제
             break;
+        }
+
         long request_end = millis();
         long latency = (request_end - last_request_time);
         last_request_time = request_end;
